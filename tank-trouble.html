@@ -200,6 +200,57 @@
             color: #aaa;
             margin-top: 20px;
         }
+
+        /* 游戏内操作说明 */
+        #controlsHint {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            display: none;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .controlBox {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .controlBox .title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .controlBox.p1 .title { color: #ff6b6b; }
+        .controlBox.p2 .title { color: #4ecdc4; }
+        .controlBox.p3 .title { color: #95e77e; }
+
+        .controlBox .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 1px;
+            font-family: monospace;
+        }
+
+        #escHint {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            color: #888;
+            pointer-events: none;
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
@@ -253,6 +304,30 @@
             <p id="overlayMessage"></p>
             <p class="hint" id="overlayHint"></p>
         </div>
+
+        <!-- 游戏内操作说明 -->
+        <div id="controlsHint">
+            <div class="controlBox p1" id="controlBox1">
+                <div class="title">P1 (红)</div>
+                <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动
+                <span class="key">Q</span> 射击
+            </div>
+            <div class="controlBox p2" id="controlBox2">
+                <div class="title">P2 (蓝)</div>
+                <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span> 移动
+                <span class="key">/</span> 射击
+            </div>
+            <div class="controlBox p3" id="controlBox3" style="display: none;">
+                <div class="title">P3 (绿)</div>
+                <span class="key">鼠标</span> 移动
+                <span class="key">左键</span> 射击
+            </div>
+        </div>
+
+        <!-- ESC提示 -->
+        <div id="escHint" style="display: none;">
+            <span class="key">ESC</span> 返回菜单
+        </div>
     </div>
 
     <script>
@@ -267,7 +342,7 @@
     const TANK_SIZE = 20;
     const BULLET_RADIUS = 4;
     const BULLET_SPEED = 8;
-    const TANK_SPEED = 3;
+    const TANK_SPEED = 1.8;
     const TANK_ROTATION_SPEED = 0.08;
     const MAX_BULLETS = 5;
     const MAX_BOUNCES = 5;
@@ -1008,7 +1083,7 @@
                                 tank.hasShield = false;
                             } else {
                                 tank.alive = false;
-                                createExplosion(tank.x, tank.y, tank.color);
+                                createTankExplosion(tank.x, tank.y, tank.color);
                                 gameState.scores[this.id]++;
                                 checkRoundEnd();
                             }
@@ -1238,7 +1313,7 @@
                             tank.hasShield = false;
                         } else {
                             tank.alive = false;
-                            createExplosion(tank.x, tank.y, tank.color);
+                            createTankExplosion(tank.x, tank.y, tank.color);
                             if (tank.id !== this.ownerId) {
                                 gameState.scores[this.ownerId]++;
                             }
@@ -1301,7 +1376,7 @@
                             tank.hasShield = false;
                         } else {
                             tank.alive = false;
-                            createExplosion(tank.x, tank.y, tank.color);
+                            createTankExplosion(tank.x, tank.y, tank.color);
                             gameState.scores[this.ownerId]++;
                             checkRoundEnd();
                         }
@@ -1379,7 +1454,79 @@
                 life: 1,
                 decay: 0.02 + Math.random() * 0.02,
                 color,
-                size: Math.random() * 5 + 3
+                size: Math.random() * 5 + 3,
+                type: 'circle'
+            });
+        }
+    }
+
+    // 坦克死亡爆炸效果（碎片四溅）
+    function createTankExplosion(x, y, color) {
+        // 火焰粒子
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 6 + 3;
+            gameState.particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                decay: 0.025 + Math.random() * 0.015,
+                color: `rgb(255, ${Math.floor(Math.random() * 150 + 100)}, 0)`,
+                size: Math.random() * 6 + 4,
+                type: 'circle'
+            });
+        }
+
+        // 坦克碎片（方形/三角形碎片）
+        for (let i = 0; i < 12; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 8 + 4;
+            gameState.particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                decay: 0.012 + Math.random() * 0.008,
+                color: color,
+                size: Math.random() * 8 + 6,
+                type: 'debris',
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.3,
+                shape: Math.random() < 0.5 ? 'rect' : 'triangle'
+            });
+        }
+
+        // 烟雾粒子
+        for (let i = 0; i < 15; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 2 + 1;
+            gameState.particles.push({
+                x: x + (Math.random() - 0.5) * 20,
+                y: y + (Math.random() - 0.5) * 20,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1,
+                life: 1,
+                decay: 0.01 + Math.random() * 0.01,
+                color: '#666',
+                size: Math.random() * 15 + 10,
+                type: 'smoke'
+            });
+        }
+
+        // 火花
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 10 + 5;
+            gameState.particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1,
+                decay: 0.05 + Math.random() * 0.03,
+                color: '#fff',
+                size: Math.random() * 2 + 1,
+                type: 'spark'
             });
         }
     }
@@ -1390,6 +1537,19 @@
             p.y += p.vy;
             p.vx *= 0.95;
             p.vy *= 0.95;
+
+            // 碎片有重力效果
+            if (p.type === 'debris') {
+                p.vy += 0.15;
+                p.rotation += p.rotationSpeed;
+            }
+
+            // 烟雾向上飘
+            if (p.type === 'smoke') {
+                p.vy -= 0.02;
+                p.size *= 1.01;
+            }
+
             p.life -= p.decay;
             return p.life > 0;
         });
@@ -1397,10 +1557,67 @@
 
     function drawParticles(ctx) {
         for (const p of gameState.particles) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-            ctx.fillStyle = p.color.replace(')', `, ${p.life})`).replace('rgb', 'rgba');
-            ctx.fill();
+            ctx.save();
+
+            // 计算透明颜色
+            let alpha = p.life;
+            let fillColor;
+
+            if (p.color.startsWith('#')) {
+                const r = parseInt(p.color.slice(1, 3), 16);
+                const g = parseInt(p.color.slice(3, 5), 16);
+                const b = parseInt(p.color.slice(5, 7), 16);
+                fillColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            } else if (p.color.startsWith('rgb(')) {
+                fillColor = p.color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+            } else {
+                fillColor = p.color;
+            }
+
+            ctx.fillStyle = fillColor;
+
+            if (p.type === 'debris') {
+                // 绘制碎片
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+
+                if (p.shape === 'rect') {
+                    ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.6);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -p.size / 2);
+                    ctx.lineTo(p.size / 2, p.size / 2);
+                    ctx.lineTo(-p.size / 2, p.size / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            } else if (p.type === 'smoke') {
+                // 绘制烟雾（较大的半透明圆）
+                ctx.globalAlpha = alpha * 0.4;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'spark') {
+                // 绘制火花（小亮点带尾迹）
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 火花尾迹
+                ctx.strokeStyle = fillColor;
+                ctx.lineWidth = p.size;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - p.vx * 2, p.y - p.vy * 2);
+                ctx.stroke();
+            } else {
+                // 默认圆形粒子
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
         }
     }
 
@@ -1500,6 +1717,18 @@
 
         // 根据玩家数量显示/隐藏分数
         document.getElementById('score3').style.display = gameState.playerCount >= 3 ? 'flex' : 'none';
+
+        // 显示操作说明
+        document.getElementById('controlsHint').style.display = 'flex';
+        document.getElementById('escHint').style.display = 'block';
+        document.getElementById('controlBox3').style.display = gameState.playerCount >= 3 ? 'block' : 'none';
+
+        // 单人模式下显示AI标识
+        if (gameState.playerCount === 1) {
+            document.getElementById('controlBox2').querySelector('.title').textContent = 'P2 (AI)';
+        } else {
+            document.getElementById('controlBox2').querySelector('.title').textContent = 'P2 (蓝)';
+        }
 
         gameState.scores = [0, 0, 0];
         updateHUD();
@@ -1608,7 +1837,7 @@
         const overlay = document.getElementById('overlay');
         document.getElementById('overlayTitle').textContent = `玩家${winner + 1} 获胜!`;
         document.getElementById('overlayMessage').textContent = `最终分数: ${gameState.scores[winner]}`;
-        document.getElementById('overlayHint').textContent = '按 R 重新开始 | 按 M 返回菜单';
+        document.getElementById('overlayHint').textContent = '按 R 重新开始 | 按 ESC 返回菜单';
         overlay.classList.add('show');
         gameState.mode = 'gameOver';
     }
@@ -1693,7 +1922,7 @@
                             tank.hasShield = false;
                         } else {
                             tank.alive = false;
-                            createExplosion(tank.x, tank.y, tank.color);
+                            createTankExplosion(tank.x, tank.y, tank.color);
 
                             // 计分（击杀者得分）
                             if (bullet.ownerId !== tank.id) {
@@ -1882,14 +2111,26 @@
             if (e.code === 'KeyR') {
                 initGame();
             }
-            if (e.code === 'KeyM') {
-                document.getElementById('mainMenu').style.display = 'flex';
-                document.getElementById('hud').style.display = 'none';
-                document.getElementById('overlay').classList.remove('show');
-                gameState.mode = 'menu';
+            if (e.code === 'KeyM' || e.code === 'Escape') {
+                returnToMenu();
             }
         }
+
+        // ESC键返回菜单（任何时候都可用）
+        if (e.code === 'Escape' && (gameState.mode === 'playing' || gameState.mode === 'roundEnd')) {
+            returnToMenu();
+        }
     });
+
+    // 返回主菜单函数
+    function returnToMenu() {
+        document.getElementById('mainMenu').style.display = 'flex';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('overlay').classList.remove('show');
+        document.getElementById('controlsHint').style.display = 'none';
+        document.getElementById('escHint').style.display = 'none';
+        gameState.mode = 'menu';
+    }
 
     document.addEventListener('keyup', (e) => {
         keys[e.code] = false;
